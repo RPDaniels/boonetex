@@ -8,7 +8,8 @@
 | Español | **[▶ Explorador de Redes Booleanas](https://rpdaniels.github.io/boonetex/Explorador%20de%20Redes%20Booleanas.html)** | [HTML](https://github.com/RPDaniels/boonetex/blob/main/Explorador%20de%20Redes%20Booleanas.html) |
 
 <sub>Tip: Ctrl/Cmd + click to open in a new tab · Consejo: Ctrl/Cmd + clic para abrirla en otra pestaña.</sub>
-
+---
+![Image](https://github.com/RPDaniels/boonetex/blob/main/boonetex.png)
 ---
 
 ## English
