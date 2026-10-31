@@ -1,160 +1,567 @@
-# Boonetex · Boolean Network Explorer
-
-**[English](#english) · [Español](#español)**
-
-| Language | Run the app | Source |
-|---|---|---|
-| English | **[▶ Boolean Network Explorer](https://rpdaniels.github.io/boonetex/Boolean%20Network%20Explorer.html)** | [HTML](https://github.com/RPDaniels/boonetex/blob/main/Boolean%20Network%20Explorer.html) |
-| Español | **[▶ Explorador de Redes Booleanas](https://rpdaniels.github.io/boonetex/Explorador%20de%20Redes%20Booleanas.html)** | [HTML](https://github.com/RPDaniels/boonetex/blob/main/Explorador%20de%20Redes%20Booleanas.html) |
-
-<sub>Tip: Ctrl/Cmd + click to open in a new tab · Consejo: Ctrl/Cmd + clic para abrirla en otra pestaña.</sub>
-
----
-
-## English
-
-An interactive, single-file web app for exploring the dynamics of small Boolean networks. You define a network as an N×N connection matrix **W**. Each of the 2ᴺ possible states of the network is then mapped to its successor, and the app draws the whole state space as a **basin of attraction field**. In that drawing you can see the attractors (fixed points and cycles), the basins that drain into each one, and the transient trees that lead to them.
-
-### The idea
-
-The network has N nodes, x₁ … x_N, and each node is either 0 or 1. The state of the network is a binary vector **x** ∈ {0,1}ᴺ. Multiplying the matrix by the state vector gives the next state:
-
-```
-x(t+1) = W ⊙ x(t)
-```
-
-There are only 2ᴺ states, so every trajectory must eventually repeat. That means every state ends up in an **attractor**: either a fixed point or a cycle. The set of states that ends up in the same attractor is its **basin of attraction**. With 5 nodes there are 32 states. With 10 nodes there are 1024.
-
-### Update rules
-
-The "multiplication" `W ⊙ x` can be interpreted in three ways:
-
-| Rule | Definition | Matrix values |
-|---|---|---|
-| **Boolean** | xᵢ′ = OR_j (Wᵢⱼ AND xⱼ). A node turns on if any of its inputs is active. | 0, 1 |
-| **XOR (mod 2)** | xᵢ′ = Σⱼ Wᵢⱼ·xⱼ mod 2. A linear network over GF(2): each node becomes the parity of its inputs. | 0, 1 |
-| **Threshold ±** | hᵢ = Σⱼ Wᵢⱼ·xⱼ. Then xᵢ′ = 1 if hᵢ > 0, xᵢ′ = 0 if hᵢ < 0, and xᵢ keeps its value if hᵢ = 0. | −1, 0, 1 (red = inhibition) |
-
-In the matrix, row *i* holds the inputs that node xᵢ receives, and column *j* holds the influence of node xⱼ.
-
-### Features
-
-- **Editable matrix from 3×3 to 10×10** (8 to 1024 states). Tap a cell to toggle its value. In threshold mode a cell cycles through 0 → 1 → −1.
-- **Built-in examples** that adapt to every size:
-  - Mixed
-  - Shift ring
-  - Identity
-  - Rule 90 on a ring
-  - Maximal-length shift register: a single cycle that visits 2ᴺ−1 states
-  - Activation–inhibition
-- **Random** matrix generator.
-- **Basin of attraction field.** The attractor sits at the centre of each basin and the transient trees radiate outwards. The drawing marks:
-  - **Garden of Eden** states (states with no predecessor) as hollow nodes
-  - attractor states as ringed nodes
-  - each basin in its own colour
-
-  You can switch the state labels on and off, and choose between fitting the whole field to the screen width or showing it at full scale with horizontal scrolling.
-- **Trajectories.** Tap any state to highlight its path to the attractor. **Step** advances one time step, and **Run** animates the dynamics on the wiring diagram as the nodes switch on and off.
-- **Summary figures:** the number of attractors, fixed points and limit cycles, the maximum period, the number of Garden of Eden states and the longest transient.
-- **Attractor list** showing each attractor's cycle and basin size. Tap an attractor to highlight its basin.
-- **Full transition table** listing every state and its successor.
-- **Configurations.** You can save a configuration under a name, then load it again or delete it later. You can also:
-  - copy the configuration as a JSON code
-  - paste a code to load it
-  - open a `.json` file
-
-### Configuration format
-
-```json
-{
-  "format": "boolean-network",
-  "v": 1,
-  "name": "Period-6 cycle",
-  "n": 5,
-  "rule": "umb",
-  "W": [[0,-1,0,1,0],[1,0,-1,0,0],[0,1,0,0,-1],[-1,0,1,0,0],[0,0,0,1,-1]]
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Explorador de Redes Booleanas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: banco de laboratorio — panel de control a la izquierda, campo de cuencas a la derecha; se apila en móvil */
+:root{
+  --bg:#eef2f5; --surface:#ffffff; --ink:#16202b; --muted:#5a6878; --line:#d3dbe3; --soft:#e3e9ef;
+  --accent:#2f5fd0; --accent-ink:#ffffff; --inhib:#c8413f; --edge:#8796a6;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
 }
-```
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1319; --surface:#151c24; --ink:#e4ebf2; --muted:#93a2b2; --line:#2a3542; --soft:#1d2630;
+  --accent:#7ea2ff; --accent-ink:#0e1319; --inhib:#ff7b72; --edge:#5f6e7e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1319; --surface:#151c24; --ink:#e4ebf2; --muted:#93a2b2; --line:#2a3542; --soft:#1d2630;
+  --accent:#7ea2ff; --accent-ink:#0e1319; --inhib:#ff7b72; --edge:#5f6e7e; color-scheme:dark}
 
-`rule` is one of `bool`, `mod2` or `umb` (threshold). The Spanish version writes its codes with Spanish field names (`formato`, `nombre`, `regla`). Both versions read both formats, so a configuration saved in one language can be loaded in the other.
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.wrap{max-width:1320px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+header h1{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,4vw,38px);letter-spacing:-.01em;margin:0;line-height:1.1;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted);max-width:70ch}
+.eq{font-family:var(--f-mono);font-size:13px;color:var(--ink);background:var(--soft);padding:1px 6px;border-radius:4px}
 
-### Running it
+.grid{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
-Open it online at the links above (served by GitHub Pages). The app is a single self-contained HTML file: all CSS and JavaScript are inline, and the only external resource is Google Fonts. To run it offline, download the file and open it in any modern browser. No build step, server or installation is needed.
+/* rule selector */
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:500 13px var(--f-body);background:transparent;color:var(--ink);border:0;padding:8px 4px;cursor:pointer;border-left:1px solid var(--line)}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.rule-note{font-size:12.5px;color:var(--muted);margin:0}
+.rule-note .eq{font-size:12px}
 
-Saved configurations are kept in the browser's local storage. To move a configuration to another browser or device, use **Copy code** or a `.json` file.
+/* matrix */
+.mtx{display:grid;grid-template-columns:34px repeat(5,1fr);gap:4px;font-family:var(--f-mono)}
+.mtx.big{gap:3px}.mtx.big button{font-size:11.5px;border-radius:4px}.mtx.big .h{font-size:10px}
+.mtx .h{font-size:11.5px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.mtx button{aspect-ratio:1;max-width:100%;border:1px solid var(--line);background:var(--bg);color:var(--muted);font:600 15px var(--f-mono);border-radius:6px;cursor:pointer;transition:background .12s}
+.mtx button.v1{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mtx button.vm{background:var(--inhib);border-color:var(--inhib);color:#fff}
+.hint{font-size:12px;color:var(--muted);margin:0}
 
----
+.btn{font:500 13px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 11px;border-radius:7px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+select.btn{padding-right:6px}
+button:focus-visible,select:focus-visible,.cell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-## Español
+/* wiring */
+#wiring{width:100%;height:auto;display:block}
+.state-bits{display:flex;gap:3px;font-family:var(--f-mono);flex:1 1 180px;min-width:0}
+.state-bits span{flex:1 1 0;min-width:0;max-width:30px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:5px;font-weight:600;font-size:16px;border:1px solid var(--line)}
+.state-bits span.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.traj{font-family:var(--f-mono);font-size:12.5px;line-height:1.9;word-break:break-word}
+.traj .gap{color:var(--muted);font-family:var(--f-body)}
+.traj b{font-weight:600}
+.traj .cyc{border-bottom:2px solid currentColor}
 
-Una aplicación web interactiva, contenida en un único archivo, para explorar la dinámica de redes booleanas pequeñas. Defines la red con una matriz de conexiones **W** de N×N. La aplicación calcula a qué estado lleva cada uno de los 2ᴺ estados posibles y dibuja el espacio de estados completo como un **campo de cuencas de atracción**. En ese dibujo se ven los atractores (puntos fijos y ciclos), las cuencas que desembocan en cada uno y los árboles transitorios que llevan hasta ellos.
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{background:var(--surface);padding:10px 14px}
+.stat .n{font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .l{font-size:12px;color:var(--muted)}
 
-### La idea
+/* field */
+.field-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:-1px;margin-right:5px}
+.field-box{overflow-x:auto}
+#field{display:block;width:100%;height:auto}
+#field .nd{cursor:pointer}
+#field text{font-family:var(--f-mono);fill:var(--muted)}
+#field .cap{font-family:var(--f-display);font-size:13px;font-weight:600;fill:var(--ink)}
+#field .cap tspan.sub{fill:var(--muted);font-weight:500}
+#field .dim{opacity:.18}
+#field .e{stroke:var(--edge);fill:none;stroke-width:var(--ew,1.3)}
+#field .e.hot{stroke:var(--ink);stroke-width:calc(var(--ew,1.3) * 1.9)}
+#field .lbl{font-size:9px}
+label.tog{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer}
 
-La red tiene N nodos, x₁ … x_N, y cada nodo vale 0 o 1. El estado de la red es un vector binario **x** ∈ {0,1}ᴺ. Al multiplicar la matriz por el vector de estado se obtiene el estado siguiente:
+/* attractors */
+.alist{display:flex;flex-direction:column}
+.arow{display:grid;grid-template-columns:14px 52px 1fr auto;gap:10px;align-items:center;padding:8px 6px;border-top:1px solid var(--line);cursor:pointer;border-radius:4px;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;color:var(--ink);font:inherit;width:100%}
+.arow:first-child{border-top:0}
+.arow:hover,.arow.sel{background:var(--soft)}
+.sw{width:12px;height:12px;border-radius:50%}
+.arow .k{font-family:var(--f-display);font-weight:600}
+.arow .cy{font-family:var(--f-mono);font-size:12.5px;min-width:0;word-break:break-word}
+.arow .sz{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 
-```
-x(t+1) = W ⊙ x(t)
-```
+/* table */
+.ttab{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;max-height:460px;overflow:auto;align-content:start}
+.cell{font-family:var(--f-mono);font-size:12.5px;display:flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);cursor:pointer;font-variant-numeric:tabular-nums}
+.cell .sw{width:8px;height:8px;flex:none}
+.cell .ar{color:var(--muted)}
+.cell.sel{border-color:var(--ink)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+@media (max-width:1100px){.two{grid-template-columns:minmax(0,1fr)}}
+/* configs */
+.inp{font:14px var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 10px;min-width:0}
+.inp:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cfg-save .inp{flex:1 1 160px}
+textarea.inp{width:100%;font:12px/1.5 var(--f-mono);resize:vertical;box-sizing:border-box}
+.cfg-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;max-height:280px;overflow:auto}
+.cfg-item{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:8px 10px;border-top:1px solid var(--line)}
+.cfg-item:first-child{border-top:0}
+.cfg-item .nm{font-weight:500;overflow-wrap:anywhere}
+.cfg-item .mt{display:block;font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.cfg-item .btn{padding:5px 9px;font-size:12.5px}
+.cfg-item .btn.danger{color:var(--inhib)}
+.cfg-item .btn.danger.armed{background:var(--inhib);border-color:var(--inhib);color:#fff}
+.cfg-empty{padding:12px;color:var(--muted);font-size:13px}
+.filewrap{position:relative;display:inline-flex}
+.filewrap input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+.filewrap:hover .btn{border-color:var(--accent)}
+details.paste summary{cursor:pointer;color:var(--muted);font-size:13px}
+details.paste[open]{display:flex;flex-direction:column;gap:8px}
+.msg{margin:0;font-size:12.5px;min-height:1.2em;color:var(--muted)}
+.msg.err{color:var(--inhib)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
 
-Como solo hay 2ᴺ estados, toda trayectoria acaba repitiéndose. Eso significa que todo estado termina en un **atractor**: un punto fijo o un ciclo. El conjunto de estados que acaba en el mismo atractor es su **cuenca de atracción**. Con 5 nodos hay 32 estados; con 10 nodos hay 1024.
+<div class="wrap">
+  <header>
+    <h1>Explorador de Redes Booleanas</h1>
+    <p>Una red de <b id="hN">5</b> nodos con matriz de conexiones <span class="eq">W</span> y un estado <span class="eq">x ∈ {0,1}<sup id="hN2">5</sup></span>. Cada estado lleva a otro: <span class="eq">x(t+1) = W ⊙ x(t)</span>. Los <b id="hS">32</b> estados se agrupan en cuencas que desembocan en atractores. Toca un estado para seguir su trayectoria.</p>
+  </header>
 
-### Reglas de actualización
+  <div class="grid">
+    <div class="col">
+      <section class="panel" aria-labelledby="h-rule">
+        <h2 id="h-rule">Regla de multiplicación</h2>
+        <div class="seg" role="group" aria-label="Regla">
+          <button id="m-bool" data-m="bool">Booleana</button>
+          <button id="m-mod2" data-m="mod2">XOR (mod 2)</button>
+          <button id="m-umb" data-m="umb">Umbral ±</button>
+        </div>
+        <p class="rule-note" id="rule-note"></p>
+      </section>
 
-La "multiplicación" `W ⊙ x` puede interpretarse de tres formas:
+      <section class="panel" aria-labelledby="h-mtx">
+        <div class="row" style="justify-content:space-between">
+          <h2 id="h-mtx">Matriz W</h2>
+          <div class="row">
+            <select class="btn" id="preset" aria-label="Ejemplos">
+              <option value="">Ejemplos…</option>
+              <option value="ej">Mixta</option>
+              <option value="anillo">Anillo de desplazamiento</option>
+              <option value="id">Identidad</option>
+              <option value="r90">Regla 90 en anillo (XOR)</option>
+              <option value="lfsr">Registro de ciclo máximo (XOR)</option>
+              <option value="umb">Activación-inhibición (umbral)</option>
+            </select>
+            <button class="btn" id="rand">Aleatoria</button>
+          </div>
+        </div>
+        <div class="row"><label for="size" class="hint" style="font-size:13px;color:var(--ink)">Tamaño</label>
+          <select class="btn" id="size">
+            <option value="3">3 × 3 · 8 estados</option><option value="4">4 × 4 · 16 estados</option>
+            <option value="5" selected>5 × 5 · 32 estados</option><option value="6">6 × 6 · 64 estados</option>
+            <option value="7">7 × 7 · 128 estados</option><option value="8">8 × 8 · 256 estados</option>
+            <option value="9">9 × 9 · 512 estados</option><option value="10">10 × 10 · 1024 estados</option>
+          </select></div>
+        <div class="mtx" id="mtx"></div>
+        <p class="hint">Fila <i>i</i>: entradas que recibe el nodo x<sub><i>i</i></sub>. Columna <i>j</i>: influencia de x<sub><i>j</i></sub>. Toca una celda para cambiarla.</p>
+      </section>
 
-| Regla | Definición | Valores de la matriz |
-|---|---|---|
-| **Booleana** | xᵢ′ = OR_j (Wᵢⱼ AND xⱼ). Un nodo se enciende si alguna de sus entradas está activa. | 0, 1 |
-| **XOR (mod 2)** | xᵢ′ = Σⱼ Wᵢⱼ·xⱼ mod 2. Una red lineal sobre GF(2): cada nodo pasa a ser la paridad de sus entradas. | 0, 1 |
-| **Umbral ±** | hᵢ = Σⱼ Wᵢⱼ·xⱼ. Después, xᵢ′ = 1 si hᵢ > 0, xᵢ′ = 0 si hᵢ < 0, y xᵢ conserva su valor si hᵢ = 0. | −1, 0, 1 (rojo = inhibición) |
+      <section class="panel" aria-labelledby="h-cfg">
+        <h2 id="h-cfg">Configuraciones</h2>
+        <form class="row cfg-save" id="cfg-form">
+          <input id="cfg-name" class="inp" maxlength="60" placeholder="Nombre, p. ej. Ciclo de periodo 6" aria-label="Nombre de la configuración">
+          <button class="btn primary" type="submit" id="cfg-savebtn">Guardar</button>
+        </form>
+        <div class="cfg-list" id="cfg-list"></div>
+        <p class="hint" id="cfg-where">Guardadas solo en este navegador.</p>
+        <div class="row cfg-x">
+          <button class="btn" id="cfg-copy" type="button">Copiar código</button>
+          <button class="btn" id="cfg-dl" type="button" hidden>Descargar .json</button>
+          <span class="filewrap"><button class="btn" type="button" id="cfg-open">Abrir archivo</button><input type="file" id="cfg-file" accept=".json,application/json,text/plain,*/*" tabindex="-1" aria-label="Archivo de configuración"></span>
+        </div>
+        <details class="paste">
+          <summary>Pegar código</summary>
+          <textarea id="cfg-paste" class="inp" rows="4" spellcheck="false" placeholder='{"formato":"red-booleana","n":5,"regla":"bool","W":[[0,1,0,0,0],…]}'></textarea>
+          <button class="btn" id="cfg-load-paste" type="button">Cargar código</button>
+        </details>
+        <p class="msg" id="cfg-msg" aria-live="polite"></p>
+      </section>
 
-En la matriz, la fila *i* contiene las entradas que recibe el nodo xᵢ, y la columna *j* contiene la influencia del nodo xⱼ.
+      <section class="panel" aria-labelledby="h-net">
+        <h2 id="h-net">Red y estado seleccionado</h2>
+        <svg id="wiring" viewBox="0 0 240 210" role="img" aria-label="Diagrama de conexiones entre los nodos"></svg>
+        <div class="row" style="justify-content:space-between">
+          <div class="state-bits" id="bits" aria-live="polite"></div>
+          <div class="row">
+            <button class="btn" id="stepb">Paso</button>
+            <button class="btn primary" id="play">Ejecutar</button>
+          </div>
+        </div>
+        <div class="traj" id="traj"></div>
+      </section>
+    </div>
 
-### Funciones
+    <div class="col">
+      <div class="stats" id="stats"></div>
 
-- **Matriz editable de 3×3 a 10×10** (de 8 a 1024 estados). Toca una celda para cambiar su valor. En modo umbral, cada celda va pasando por 0 → 1 → −1.
-- **Ejemplos incluidos** que se adaptan a cada tamaño:
-  - Mixta
-  - Anillo de desplazamiento
-  - Identidad
-  - Regla 90 en anillo
-  - Registro de ciclo máximo: un único ciclo que recorre 2ᴺ−1 estados
-  - Activación-inhibición
-- **Generador de matrices aleatorias.**
-- **Campo de cuencas de atracción.** El atractor ocupa el centro de cada cuenca y los árboles transitorios salen hacia fuera. El dibujo marca:
-  - los estados **Jardín del Edén** (estados sin predecesor) como nodos huecos
-  - los estados del atractor con un anillo
-  - cada cuenca con su propio color
+      <section class="panel" aria-labelledby="h-field">
+        <div class="field-head">
+          <h2 id="h-field">Campo de cuencas de atracción</h2>
+          <div class="row" style="gap:14px"><label class="tog"><input type="checkbox" id="labels" checked> Etiquetas</label><label class="tog"><input type="checkbox" id="fit" checked> Ajustar al ancho</label></div>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--muted)"></i>estado</span>
+          <span><i style="border:2px solid var(--muted);width:7px;height:7px"></i>Jardín del Edén (sin predecesor)</span>
+          <span><i style="background:var(--muted);box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--ink)"></i>estado del atractor</span>
+        </div>
+        <div class="field-box"><svg id="field" role="img" aria-label="Grafo de transiciones de todos los estados agrupados por cuenca"></svg></div>
+      </section>
 
-  Puedes activar o desactivar las etiquetas de los estados, y elegir entre ajustar todo el campo al ancho de la pantalla o verlo a tamaño real con desplazamiento horizontal.
-- **Trayectorias.** Toca cualquier estado para resaltar su camino hasta el atractor. **Paso** avanza un instante de tiempo y **Ejecutar** anima la dinámica sobre el diagrama de la red, encendiendo y apagando los nodos.
-- **Cifras resumen:** el número de atractores, de puntos fijos y de ciclos límite, el periodo máximo, el número de estados Jardín del Edén y el transitorio más largo.
-- **Lista de atractores** con el ciclo de cada atractor y el tamaño de su cuenca. Toca un atractor para resaltar su cuenca.
-- **Tabla de transiciones completa** con cada estado y su sucesor.
-- **Configuraciones.** Puedes guardar una configuración con un nombre y después cargarla o borrarla. También puedes:
-  - copiar la configuración como código JSON
-  - pegar un código para cargarlo
-  - abrir un archivo `.json`
+      <div class="two">
+        <section class="panel" aria-labelledby="h-att">
+          <h2 id="h-att">Atractores y cuencas</h2>
+          <div class="alist" id="alist"></div>
+        </section>
+        <section class="panel" aria-labelledby="h-tab">
+          <h2 id="h-tab">Tabla de transiciones</h2>
+          <div class="ttab" id="ttab"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
 
-### Formato de configuración
+<script>
+(()=>{
+let N=5,S=32;
+const rng=n=>[...Array(n).keys()];
+const mulberry=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const TAPS={3:[3,2],4:[4,3],5:[5,3],6:[6,5],7:[7,6],8:[8,6,5,4],9:[9,5],10:[10,7]};
+const mk=f=>rng(N).map(i=>rng(N).map(j=>f(i,j)));
+const seeded=(seed,umb)=>{const r=mulberry(seed);return mk(()=>{const v=r(),p=Math.min(.42,2.6/N);return umb?(v<p*.45?-1:v<p?1:0):(v<p?1:0)})};
+const PRESETS={
+  ej:()=>({m:'bool',W:N===5?[[0,0,1,0,0],[1,0,0,0,0],[0,1,0,0,0],[0,0,0,0,1],[1,0,0,1,0]]:seeded(N*31+7,false)}),
+  anillo:()=>({m:'bool',W:mk((i,j)=>j===(i+N-1)%N?1:0)}),
+  id:()=>({m:'bool',W:mk((i,j)=>i===j?1:0)}),
+  r90:()=>({m:'mod2',W:mk((i,j)=>(j===(i+1)%N||j===(i+N-1)%N)&&i!==j?1:0)}),
+  lfsr:()=>({m:'mod2',W:mk((i,j)=>i===0?(TAPS[N].includes(j+1)?1:0):(j===i-1?1:0))}),
+  umb:()=>({m:'umb',W:N===5?[[0,-1,0,1,0],[1,0,-1,0,0],[0,1,0,0,-1],[-1,0,1,0,0],[0,0,0,1,-1]]:seeded(N*53+11,true)})
+};
+const NOTES={
+  bool:'Producto booleano: <span class="eq">xᵢ′ = OR_j (Wᵢⱼ AND xⱼ)</span>. Un nodo se enciende si alguna de sus entradas está activa.',
+  mod2:'Producto en GF(2): <span class="eq">xᵢ′ = Σⱼ Wᵢⱼ·xⱼ mod 2</span>. Red lineal: cada nodo es la paridad de sus entradas.',
+  umb:'Umbral con pesos ±1: <span class="eq">hᵢ = Σⱼ Wᵢⱼ·xⱼ</span>; xᵢ′ = 1 si hᵢ &gt; 0, 0 si hᵢ &lt; 0, y conserva su valor si hᵢ = 0. Rojo = inhibición.'
+};
+const PAL=['#3b6fd8','#de8a2c','#2e9c69','#c8437f','#7b5cd6','#1d9db3','#b59a1f','#d64a45'];
+const col=i=>i<PAL.length?PAL[i]:`hsl(${(i*137.508+20)%360} 58% 52%)`;
 
-```json
-{
-  "formato": "red-booleana",
-  "v": 1,
-  "nombre": "Ciclo de periodo 6",
-  "n": 5,
-  "regla": "umb",
-  "W": [[0,-1,0,1,0],[1,0,-1,0,0],[0,1,0,0,-1],[-1,0,1,0,0],[0,0,0,1,-1]]
+let mode='bool', W=PRESETS.ej().W;
+let A=null, sel=null, selBasin=null, cur=null, timer=null;
+const $=id=>document.getElementById(id);
+const bits=s=>rng(N).map(i=>(s>>(N-1-i))&1);
+const str=s=>bits(s).join('');
+const seq=(arr,max=12,f=str)=>arr.length<=max?arr.map(f).join(' → '):arr.slice(0,6).map(f).join(' → ')+` → <span class="gap">… ${arr.length-9} más …</span> → `+arr.slice(-3).map(f).join(' → ');
+
+function step(s){
+  const x=bits(s);
+  const y=x.map((xi,i)=>{
+    if(mode==='bool') return W[i].some((w,j)=>w&&x[j])?1:0;
+    if(mode==='mod2') return W[i].reduce((a,w,j)=>a+(w?x[j]:0),0)%2;
+    const h=W[i].reduce((a,w,j)=>a+w*x[j],0); return h>0?1:h<0?0:xi;
+  });
+  return y.reduce((a,b)=>a*2+b,0);
 }
-```
 
-`regla` puede ser `bool`, `mod2` o `umb` (umbral). La versión inglesa escribe sus códigos con nombres de campo en inglés (`format`, `name`, `rule`). Las dos versiones leen ambos formatos, así que una configuración guardada en un idioma se puede cargar en el otro.
+function analyze(){
+  const nxt=rng(S).map(step);
+  const preds=rng(S).map(()=>[]); nxt.forEach((t,s)=>preds[t].push(s));
+  const st=Array(S).fill(0), at=Array(S).fill(-1), onC=Array(S).fill(false); let cyc=[];
+  for(let s=0;s<S;s++){ if(st[s])continue; const p=[]; let u=s;
+    while(!st[u]){st[u]=1;p.push(u);u=nxt[u]}
+    if(st[u]===1){const c=p.slice(p.indexOf(u)); c.forEach(v=>{at[v]=cyc.length;onC[v]=true}); cyc.push(c)}
+    p.forEach(v=>{st[v]=2;at[v]=at[u]});
+  }
+  const sizes=Array(cyc.length).fill(0); at.forEach(a=>sizes[a]++);
+  cyc=cyc.map((c,i)=>{const m=c.indexOf(Math.min(...c));return{c:c.slice(m).concat(c.slice(0,m)),old:i,size:sizes[i]}});
+  cyc.sort((a,b)=>b.size-a.size||a.c.length-b.c.length||a.c[0]-b.c[0]);
+  const remap={}; cyc.forEach((o,i)=>remap[o.old]=i);
+  const basin=at.map(a=>remap[a]);
+  const children=preds.map(p=>p.filter(q=>!onC[q]));
+  const depth=Array(S).fill(0);
+  const setD=(n,d)=>{depth[n]=d;children[n].forEach(c=>setD(c,d+1))};
+  cyc.forEach(o=>o.c.forEach(c=>setD(c,0)));
+  const goe=rng(S).filter(s=>!preds[s].length);
+  return {nxt,preds,children,onC,basin,depth,cycles:cyc,goe,goeSet:new Set(goe)};
+}
 
-### Cómo usarla
+/* ---------- size & matrix ---------- */
+function resize(n){
+  const old=W; N=n; S=1<<n;
+  W=mk((i,j)=>old[i]&&old[i][j]!==undefined?old[i][j]:0);
+  $('labels').checked=n<=6;
+  $('hN').textContent=n; $('hN2').textContent=n; $('hS').textContent=S;
+  layoutWiring();
+}
+$('size').addEventListener('change',e=>{resize(+e.target.value);update(true)});
+function renderMatrix(){
+  const m=$('mtx'); m.classList.toggle('big',N>6);
+  m.style.gridTemplateColumns=`${N>6?26:34}px repeat(${N},minmax(0,1fr))`;
+  let h='<div class="h"></div>';
+  for(let j=0;j<N;j++) h+=`<div class="h">x${j+1}</div>`;
+  for(let i=0;i<N;i++){ h+=`<div class="h">x${i+1}′</div>`;
+    for(let j=0;j<N;j++){const v=W[i][j];
+      h+=`<button id="w${i}_${j}" data-i="${i}" data-j="${j}" class="${v===1?'v1':v===-1?'vm':''}" aria-label="W fila ${i+1} columna ${j+1}: ${v}">${v===-1?'−1':v}</button>`;}
+  }
+  m.innerHTML=h;
+}
+$('mtx').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  const i=+b.dataset.i,j=+b.dataset.j,v=W[i][j];
+  W[i][j]= mode==='umb' ? (v===0?1:v===1?-1:0) : (v?0:1);
+  update(true);
+});
+function setMode(m){ mode=m; if(m!=='umb') W=W.map(r=>r.map(v=>v?1:0));
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));
+  $('rule-note').innerHTML=NOTES[m];
+}
+document.querySelector('.seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setMode(b.dataset.m);update(true)});
+$('preset').addEventListener('change',e=>{const f=PRESETS[e.target.value];if(!f)return;const p=f();W=p.W;setMode(p.m);e.target.value='';update(true)});
+$('rand').addEventListener('click',()=>{
+  const p=Math.min(mode==='umb'?.42:.3,(mode==='umb'?3:2.5)/N);
+  W=mk(()=>{const r=Math.random(); if(mode==='umb') return r<p*.45?-1:r<p?1:0; return r<p?1:0});
+  update(true);
+});
 
-Ábrela en línea con los enlaces del principio (servidos por GitHub Pages). La aplicación es un único archivo HTML autocontenido: todo el CSS y el JavaScript van dentro del archivo, y el único recurso externo son las fuentes de Google Fonts. Para usarla sin conexión, descarga el archivo y ábrelo en cualquier navegador moderno. No hace falta compilar, ni un servidor, ni instalar nada.
+/* ---------- wiring diagram ---------- */
+let WP=[],WR=15;
+function layoutWiring(){WR=N<=6?15:N<=8?12:10;const RR=N<=4?66:78;
+  WP=rng(N).map(i=>{const a=-Math.PI/2+i*2*Math.PI/N;return[120+RR*Math.cos(a),110+RR*Math.sin(a),a]})}
+function renderWiring(state){
+  const x=state==null?Array(N).fill(0):bits(state); const R=WR, sw=N>7?1.1:1.5; let e='';
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){const v=W[i][j]; if(!v)continue;
+    const c=v<0?'var(--inhib)':'var(--edge)', m=v<0?'url(#wbar)':'url(#warr)';
+    if(i===j){const[cx,cy,a]=WP[i];const p=a+.55,q=a-.55,L=R*2.8;
+      e+=`<path d="M${cx+R*Math.cos(p)} ${cy+R*Math.sin(p)} C${cx+L*Math.cos(a+.7)} ${cy+L*Math.sin(a+.7)} ${cx+L*Math.cos(a-.7)} ${cy+L*Math.sin(a-.7)} ${cx+(R+2)*Math.cos(q)} ${cy+(R+2)*Math.sin(q)}" fill="none" stroke="${c}" stroke-width="${sw}" marker-end="${m}"/>`;continue;}
+    const[x1,y1]=WP[j],[x2,y2]=WP[i]; const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy),nx=-dy/L,ny=dx/L;
+    const off=Math.min(14,L*.18), mx=(x1+x2)/2+nx*off,my=(y1+y2)/2+ny*off;
+    const h1=Math.hypot(mx-x1,my-y1), sx=x1+(mx-x1)/h1*R, sy=y1+(my-y1)/h1*R;
+    const tl=Math.hypot(x2-mx,y2-my), ex=x2-(x2-mx)/tl*(R+2), ey=y2-(y2-my)/tl*(R+2);
+    e+=`<path d="M${sx} ${sy} Q${mx} ${my} ${ex} ${ey}" fill="none" stroke="${c}" stroke-width="${sw}" marker-end="${m}"/>`;
+  }
+  const fs=N>8?9:N>6?10.5:12;
+  let n='';WP.forEach(([cx,cy],i)=>{const on=x[i];
+    n+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="${on?'var(--accent)':'var(--surface)'}" stroke="${on?'var(--accent)':'var(--muted)'}" stroke-width="1.5"/><text x="${cx}" y="${cy+fs*.36}" text-anchor="middle" font-family="var(--f-mono)" font-size="${fs}" font-weight="600" fill="${on?'var(--accent-ink)':'var(--ink)'}">x${i+1}</text>`});
+  $('wiring').innerHTML=`<defs><marker id="warr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--edge)"/></marker><marker id="wbar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M7 0h3v10h-3z" fill="var(--inhib)"/></marker></defs>${e}${n}`;
+}
 
-Las configuraciones guardadas se conservan en el almacenamiento local del navegador. Para llevar una configuración a otro navegador o dispositivo, usa **Copiar código** o un archivo `.json`.
+/* ---------- basin field layout ---------- */
+const geom=()=>{const NR=N<=5?7:N===6?6:N===7?5:N===8?4:3, showL=$('labels').checked, LBL=showL?N*5.6+8:3;
+  return {NR,showL,LBL,GAP:2*NR+(showL?8:4),DR:showL?LBL+2*NR+4:Math.max(14,NR*4+6),EW:N<=6?1.3:N<=8?.9:.6}};
+function layout(width,G){
+  const {children,cycles}=A, pos=Array(S), comps=[];
+  const leafMemo={}; const leaves=n=>leafMemo[n]??(leafMemo[n]=children[n].length?children[n].reduce((a,c)=>a+leaves(c),0):1);
+  cycles.forEach((o,bi)=>{
+    const c=o.c,p=c.length, ang={}, dep={}; let maxD=0;
+    const wts=c.map(n=>leaves(n)), tot=wts.reduce((a,b)=>a+b,0);
+    const minSpan={}; const note=(d,s)=>{minSpan[d]=Math.min(minSpan[d]??9,s)};
+    const tree=(n,a0,a1,d)=>{let a=a0;const t=leaves(n);children[n].forEach(ch=>{const sp=(a1-a0)*leaves(ch)/t;ang[ch]=a+sp/2;dep[ch]=d;note(d,sp);maxD=Math.max(maxD,d);tree(ch,a,a+sp,d+1);a+=sp})};
+    let a=-Math.PI/2-(2*Math.PI*wts[0]/tot)/2;
+    c.forEach((n,k)=>{const sp=2*Math.PI*wts[k]/tot;ang[n]=a+sp/2;dep[n]=0;if(p>1)note(0,sp);tree(n,a,a+sp,1);a+=sp});
+    const rad=[p>1?Math.max(G.NR*3.5,G.GAP/(minSpan[0]||9)):0];
+    for(let d=1;d<=maxD;d++) rad[d]=Math.max(rad[d-1]+G.DR, G.GAP/minSpan[d]);
+    const R=rad[maxD]+(maxD||p>1?G.LBL:G.LBL+G.NR*2.5)+G.NR+6;
+    comps.push({bi,ang,dep,rad,R:Math.max(R,G.showL?44:22),p});
+  });
+  let x=0,y=0,rowH=0; const CAP=22, PAD=10;
+  comps.forEach(cp=>{const w=2*cp.R;
+    if(x>0&&x+w>width){x=0;y+=rowH+PAD;rowH=0}
+    cp.cx=x+cp.R; cp.cy=y+CAP+cp.R; cp.x0=x; cp.y0=y;
+    for(const n in cp.ang){const r=cp.rad[cp.dep[n]];pos[n]=[cp.cx+r*Math.cos(cp.ang[n]),cp.cy+r*Math.sin(cp.ang[n]),cp.ang[n],cp]}
+    x+=w+PAD; rowH=Math.max(rowH,w+CAP);
+  });
+  return {pos,comps,h:y+rowH,w:Math.max(width,...comps.map(c=>c.x0+2*c.R))};
+}
+
+function trajectory(s){
+  const seen=new Map(), path=[]; let u=s;
+  while(!seen.has(u)){seen.set(u,path.length);path.push(u);u=A.nxt[u]}
+  return {path,loopAt:seen.get(u)};
+}
+
+function renderField(){
+  const box=document.querySelector('.field-box'); const width=Math.max(300,box.clientWidth);
+  const G=geom(), L=layout(width,G), {pos,comps}=L, NR=G.NR, k7=NR/7;
+  let hotE=new Set(), hotN=null;
+  if(sel!=null){const t=trajectory(sel);hotN=new Set(t.path);t.path.forEach(s=>hotE.add(s))}
+  else if(selBasin!=null){hotN=new Set(rng(S).filter(s=>A.basin[s]===selBasin));hotN.forEach(s=>hotE.add(s))}
+  let caps='',edges='',nodes='',lbls='';
+  comps.forEach(cp=>{const o=A.cycles[cp.bi];const k=o.c.length;
+    caps+=`<text class="cap${selBasin!=null&&selBasin!==cp.bi&&sel==null?' dim':''}" x="${cp.x0+4}" y="${cp.y0+14}"><tspan fill="${col(cp.bi)}">●</tspan> A${cp.bi+1} <tspan class="sub">· ${k===1?'punto fijo':'ciclo '+k} · ${o.size}/${S}</tspan></text>`});
+  for(let s=0;s<S;s++){
+    const t=A.nxt[s],[x1,y1,a1,cp]=pos[s],[x2,y2,a2]=pos[t];
+    const hot=hotE.has(s), dim=hotN&&!hot?' dim':'', cls=`e${hot?' hot':''}${dim}`, m=hot?'url(#ah)':'url(#an)';
+    if(s===t){const cx=0,cy=-1,px=1,py=0,bx=x1,by=y1-NR,u=20*k7,v=12*k7;
+      edges+=`<path class="${cls}" d="M${x1+(px*.85)*NR} ${y1+(cy*.5)*NR} C${bx+px*v} ${by-u} ${bx-px*v} ${by-u} ${x1-.9*(NR+2)} ${y1-.6*(NR+2)}" marker-end="${m}"/>`;continue;}
+    if(A.onC[s]&&A.onC[t]&&cp.p>1){const r=cp.rad[0];let d=(a2-a1)%(2*Math.PI);if(d<=0)d+=2*Math.PI;
+      const e1=a1+(NR+1)/r, e2=a1+d-(NR+3)/r, la=(e2-e1)>Math.PI?1:0;
+      edges+=`<path class="${cls}" d="M${cp.cx+r*Math.cos(e1)} ${cp.cy+r*Math.sin(e1)} A${r} ${r} 0 ${la} 1 ${cp.cx+r*Math.cos(e2)} ${cp.cy+r*Math.sin(e2)}" marker-end="${m}"/>`;continue;}
+    const dx=x2-x1,dy=y2-y1,L2=Math.hypot(dx,dy)||1;
+    edges+=`<path class="${cls}" d="M${x1+dx/L2*NR} ${y1+dy/L2*NR} L${x2-dx/L2*(NR+3)} ${y2-dy/L2*(NR+3)}" marker-end="${m}"/>`;
+  }
+  for(let s=0;s<S;s++){const [x,y,a]=pos[s],b=A.basin[s],c=col(b),dim=hotN&&!hotN.has(s)?' dim':'';
+    const isG=A.goeSet.has(s), onc=A.onC[s];
+    nodes+=`<g class="nd${dim}" data-s="${s}"><title>${str(s)} (${s}) → ${str(A.nxt[s])}</title>`+
+      (onc?`<circle cx="${x}" cy="${y}" r="${NR+3.5*k7}" fill="none" stroke="var(--ink)" stroke-width="${1.4*Math.max(k7,.6)}"/>`:'')+
+      (s===sel||s===cur?`<circle cx="${x}" cy="${y}" r="${NR*2+2}" fill="none" stroke="${c}" stroke-width="2.5"/>`:'')+
+      `<circle cx="${x}" cy="${y}" r="${isG?NR*.85:NR}" fill="${isG?'var(--surface)':c}" stroke="${c}" stroke-width="${isG?2.4*Math.max(k7,.6):1}"/>`+
+      `<circle cx="${x}" cy="${y}" r="${NR+6}" fill="transparent"/></g>`;
+    if(G.showL){let la=a; if(A.depth[s]===0&&A.cycles[b].c.length===1) la=Math.PI/2;
+      const ox=x+Math.cos(la)*(NR+5), oy=y+Math.sin(la)*(NR+5); let deg=la*180/Math.PI; const flip=Math.cos(la)<0; if(flip)deg+=180;
+      if(Math.abs(Math.cos(la))<.2) lbls+=`<text class="lbl${dim}" x="${x}" y="${Math.sin(la)>0?y+NR+13:y-NR-6}" text-anchor="middle">${str(s)}</text>`;
+      else lbls+=`<text class="lbl${dim}" x="${ox}" y="${oy}" dominant-baseline="central" text-anchor="${flip?'end':'start'}" transform="rotate(${deg} ${ox} ${oy})">${str(s)}</text>`;}
+  }
+  const f=$('field'); f.setAttribute('viewBox',`0 0 ${L.w} ${L.h+6}`);
+  f.style.minWidth=!$('fit').checked&&L.w>width?L.w+'px':'';
+  f.style.setProperty('--ew',G.EW); 
+  f.innerHTML=`<defs><marker id="an" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 1L10 5L0 9z" fill="var(--edge)"/></marker><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 1L10 5L0 9z" fill="var(--ink)"/></marker></defs>${caps}${edges}${lbls}${nodes}`;
+}
+$('field').addEventListener('click',e=>{const g=e.target.closest('.nd');if(!g)return;select(+g.dataset.s)});
+$('labels').addEventListener('change',renderField);
+$('fit').addEventListener('change',renderField);
+
+/* ---------- side readouts ---------- */
+function renderStats(){
+  const C=A.cycles, fx=C.filter(o=>o.c.length===1).length, maxT=Math.max(...A.depth), maxP=Math.max(...C.map(o=>o.c.length));
+  const it=[[C.length,'atractores'],[fx,'puntos fijos'],[C.length-fx,'ciclos límite'],[maxP,'periodo máximo'],[A.goe.length,'Jardín del Edén'],[maxT,'transitorio máx.']];
+  $('stats').innerHTML=it.map(([n,l])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+}
+function renderAttractors(){
+  $('alist').innerHTML=A.cycles.map((o,i)=>`<button class="arow${selBasin===i&&sel==null?' sel':''}" data-b="${i}"><span class="sw" style="background:${col(i)}"></span><span class="k">A${i+1}</span><span class="cy">${seq(o.c)}${o.c.length>1?' ↺':''}</span><span class="sz">${o.size}/${S}</span></button>`).join('');
+}
+$('alist').addEventListener('click',e=>{const b=e.target.closest('.arow');if(!b)return;stop();const i=+b.dataset.b;sel=null;cur=null;selBasin=selBasin===i?null:i;refreshSel()});
+function renderTable(){
+  $('ttab').innerHTML=rng(S).map(s=>`<button class="cell${s===sel?' sel':''}" data-s="${s}"><span class="sw" style="background:${col(A.basin[s])}"></span>${str(s)}<span class="ar">→</span>${str(A.nxt[s])}</button>`).join('');
+}
+$('ttab').addEventListener('click',e=>{const b=e.target.closest('.cell');if(!b)return;select(+b.dataset.s)});
+
+function renderState(){
+  const s=cur??sel; const x=s==null?null:bits(s);
+  $('bits').innerHTML=rng(N).map(i=>`<span class="${x&&x[i]?'on':''}" title="x${i+1}">${x?x[i]:'·'}</span>`).join('');
+  renderWiring(s);
+  if(sel==null){$('traj').innerHTML='<span style="color:var(--muted)">Toca un estado en el campo o en la tabla para ver su trayectoria.</span>';return}
+  const t=trajectory(sel), b=A.basin[sel], c=col(b), per=t.path.length-t.loopAt;
+  const fmt=s=>s===cur?`<b style="color:${c}">${str(s)}</b>`:str(s);
+  const tr=t.path.slice(0,t.loopAt), cy=t.path.slice(t.loopAt);
+  $('traj').innerHTML=(tr.length?seq(tr,12,fmt)+' → ':'')+`<span class="cyc">${seq(cy,10,fmt)}</span> ↺ <br><span style="color:var(--muted);font-family:var(--f-body)">Transitorio: ${t.loopAt} paso${t.loopAt===1?'':'s'} · cae en <b style="color:${c}">A${b+1}</b> (${per===1?'punto fijo':'ciclo de periodo '+per})${A.goeSet.has(sel)?' · estado Jardín del Edén':''}${cur!=null&&cur!==sel?` · actual: <b style="color:${c};font-family:var(--f-mono)">${str(cur)}</b>`:''}</span>`;
+}
+
+function refreshSel(){renderField();renderAttractors();renderTable();renderState()}
+function select(s){stop();sel=s;cur=s;selBasin=null;refreshSel()}
+function advance(){ if(sel==null){sel=cur=0} else cur=A.nxt[cur??sel]; refreshSel() }
+function stop(){if(timer){clearInterval(timer);timer=null;$('play').textContent='Ejecutar'}}
+$('stepb').addEventListener('click',()=>{stop();advance()});
+$('play').addEventListener('click',()=>{ if(timer){stop();return}
+  if(sel==null){sel=cur=A.goe[0]??0;refreshSel()}
+  $('play').textContent='Detener'; timer=setInterval(advance,N>7?450:750)});
+
+function update(matrixChanged){
+  stop(); if(matrixChanged){sel=null;cur=null;selBasin=null}
+  A=analyze(); renderMatrix(); renderStats(); refreshSel();
+}
+
+/* ---------- configuraciones ---------- */
+const MODE_NAME={bool:'Booleana',mod2:'XOR',umb:'Umbral'};
+const LSKEY='rb-configs-v1';
+let saved=[], dbCol=null, downloads=null, armed=null;
+const slug=t=>t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,48)||'config';
+const msg=(t,err)=>{const m=$('cfg-msg');m.textContent=t;m.classList.toggle('err',!!err)};
+const current=name=>({formato:'red-booleana',v:1,nombre:name,n:N,regla:mode,W:W.map(r=>r.slice())});
+function validate(c){
+  if(!c||typeof c!=='object') throw 'El código no es un objeto JSON.';
+  const n=+c.n; if(!(n>=3&&n<=10)) throw 'El tamaño debe estar entre 3 y 10.';
+  if(!NOTES[c.regla]) throw 'Regla desconocida: usa "bool", "mod2" o "umb".';
+  if(!Array.isArray(c.W)||c.W.length!==n||c.W.some(r=>!Array.isArray(r)||r.length!==n||r.some(v=>![-1,0,1].includes(v))))
+    throw `La matriz W debe ser de ${n}×${n} con valores -1, 0 o 1.`;
+  return {nombre:String(c.nombre||'Sin nombre').slice(0,60),n,regla:c.regla,W:c.W.map(r=>r.slice())};
+}
+function applyConfig(c){
+  $('size').value=c.n; N=c.n; S=1<<c.n; W=c.W.map(r=>r.slice());
+  $('labels').checked=c.n<=6; $('hN').textContent=c.n; $('hN2').textContent=c.n; $('hS').textContent=S;
+  layoutWiring(); setMode(c.regla); update(true);
+  if(A.goe.length) {select(A.goe[0]);stop()}
+}
+const enc=c=>({nombre:c.nombre,n:c.n,regla:c.regla,W:c.W.map(r=>r.join(',')).join(';'),guardada:c.guardada||new Date().toISOString()});
+const dec=d=>({nombre:d.nombre,n:d.n,regla:d.regla,W:String(d.W).split(';').map(r=>r.split(',').map(Number)),guardada:d.guardada});
+function readLocal(){try{return JSON.parse(localStorage.getItem(LSKEY)||'[]').map(x=>({...x,id:x.id||slug(x.nombre)}))}catch(e){return []}}
+function writeLocal(){try{localStorage.setItem(LSKEY,JSON.stringify(saved));return true}catch(e){return false}}
+function renderSaved(){
+  const L=$('cfg-list');
+  if(!saved.length){L.innerHTML='<div class="cfg-empty">Aún no hay configuraciones guardadas. Ajusta la matriz, ponle un nombre y pulsa Guardar.</div>';return}
+  const fmtD=iso=>{try{return new Date(iso).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}catch(e){return ''}};
+  L.innerHTML=saved.slice().sort((a,b)=>String(b.guardada).localeCompare(String(a.guardada))).map(c=>
+    `<div class="cfg-item"><div><span class="nm"></span><span class="mt">${c.n}×${c.n} · ${MODE_NAME[c.regla]||c.regla} · ${fmtD(c.guardada)}</span></div>`+
+    `<button class="btn" type="button" data-load="${c.id}">Cargar</button><button class="btn danger${armed===c.id?' armed':''}" type="button" data-del="${c.id}">${armed===c.id?'¿Borrar?':'Borrar'}</button></div>`).join('');
+  [...L.querySelectorAll('.nm')].forEach((el,i)=>el.textContent=saved.slice().sort((a,b)=>String(b.guardada).localeCompare(String(a.guardada)))[i].nombre);
+}
+$('cfg-form').addEventListener('submit',async e=>{e.preventDefault();
+  const name=$('cfg-name').value.trim(); if(!name){msg('Escribe un nombre para la configuración.',true);$('cfg-name').focus();return}
+  const c={...current(name),id:slug(name),guardada:new Date().toISOString()};
+  const existed=saved.some(x=>x.id===c.id);
+  if(dbCol){ try{await dbCol.doc(c.id).set(enc(c)); msg(existed?`«${name}» actualizada.`:`«${name}» guardada.`)}catch(err){msg('No se pudo guardar: '+(err&&err.message||'error'),true)} return }
+  saved=saved.filter(x=>x.id!==c.id).concat(c);
+  if(writeLocal()){renderSaved();msg(existed?`«${name}» actualizada.`:`«${name}» guardada.`)} else msg('Este navegador no permite guardar. Usa «Copiar código».',true);
+});
+$('cfg-list').addEventListener('click',async e=>{
+  const ld=e.target.closest('[data-load]'), dl=e.target.closest('[data-del]');
+  if(ld){const c=saved.find(x=>x.id===ld.dataset.load); if(!c)return; try{applyConfig(validate(c)); $('cfg-name').value=c.nombre; msg(`«${c.nombre}» cargada.`)}catch(err){msg(String(err),true)}}
+  if(dl){const id=dl.dataset.del;
+    if(armed!==id){armed=id;renderSaved();setTimeout(()=>{if(armed===id){armed=null;renderSaved()}},3500);return}
+    armed=null; const c=saved.find(x=>x.id===id);
+    if(dbCol){try{await dbCol.doc(id).delete();msg(`«${c?c.nombre:id}» borrada.`)}catch(err){msg('No se pudo borrar.',true)}return}
+    saved=saved.filter(x=>x.id!==id); writeLocal(); renderSaved(); msg(`«${c?c.nombre:id}» borrada.`);
+  }
+});
+const codeOf=()=>JSON.stringify(current($('cfg-name').value.trim()||'Sin nombre'));
+$('cfg-copy').addEventListener('click',()=>{const t=codeOf();
+  navigator.clipboard.writeText(t).then(()=>msg('Código copiado. Pégalo en «Pegar código» para recuperarlo.'),
+    ()=>{const ta=$('cfg-paste');ta.closest('details').open=true;ta.value=t;ta.focus();ta.select();msg('Código seleccionado en el cuadro: cópialo manualmente.')});
+});
+$('cfg-dl').addEventListener('click',async()=>{if(!downloads)return;
+  const name=$('cfg-name').value.trim()||'red-booleana';
+  try{await downloads.save({filename:slug(name)+'.json',data:JSON.stringify(current(name),null,1)});msg('Archivo guardado.')}
+  catch(err){if(err&&err.code!=='declined'&&err.code!=='cancelled')msg('No se pudo descargar el archivo.',true)}
+});
+function importText(t,src){try{const c=validate(JSON.parse(t)); applyConfig(c); $('cfg-name').value=c.nombre; msg(`Configuración cargada desde ${src}.`)}catch(err){msg(typeof err==='string'?err:'El contenido no es JSON válido.',true)}}
+$('cfg-load-paste').addEventListener('click',()=>importText($('cfg-paste').value,'el código'));
+$('cfg-open').addEventListener('click',()=>$('cfg-file').click());
+$('cfg-file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>importText(String(r.result),'«'+f.name+'»');r.readAsText(f);e.target.value=''});
+saved=readLocal(); renderSaved();
+(async()=>{
+  try{
+    const cl=window.claude; if(!cl||!cl.use) return;
+    cl.use('downloads').then(d=>{if(d){downloads=d;$('cfg-dl').hidden=false}}).catch(()=>{});
+    const [db,user]=await Promise.all([cl.use('db'),cl.use('user')]);
+    const uid=user?await user.id():null; if(!db||!uid) return;
+    dbCol=db.collection('data/users/'+uid+'/configs');
+    $('cfg-where').textContent='Guardadas en tu cuenta: las encontrarás en cualquier dispositivo.';
+    const local=saved.slice(); let migrated=false;
+    dbCol.onSnapshot(snap=>{
+      saved=snap.docs.map(d=>({...dec(d.data()),id:d.id})); if(armed&&!saved.some(x=>x.id===armed))armed=null; renderSaved();
+      if(!migrated){migrated=true; (async()=>{for(const c of local){if(!saved.some(x=>x.id===c.id)){try{await dbCol.doc(c.id).set(enc(c))}catch(e){}}}})()}
+    },()=>{dbCol=null;saved=readLocal();renderSaved();$('cfg-where').textContent='Guardadas solo en este navegador.'});
+  }catch(e){}
+})();
+
+let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(renderField,120)});
+layoutWiring(); setMode('bool'); update(true);
+select(A.goe[0]??0); stop();
+})();
+</script>
+
+</body></html>
