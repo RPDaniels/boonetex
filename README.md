@@ -2,10 +2,12 @@
 
 **[English](#english) · [Español](#español)**
 
-| Language | Open the app |
-|---|---|
-| English | [Boolean Network Explorer.html](https://github.com/RPDaniels/boonetex/blob/main/Boolean%20Network%20Explorer.html) |
-| Español | [Explorador de Redes Booleanas.html](https://github.com/RPDaniels/boonetex/blob/main/Explorador%20de%20Redes%20Booleanas.html) |
+| Language | Run the app | Source |
+|---|---|---|
+| English | **[▶ Boolean Network Explorer](https://rpdaniels.github.io/boonetex/Boolean%20Network%20Explorer.html)** | [HTML](https://github.com/RPDaniels/boonetex/blob/main/Boolean%20Network%20Explorer.html) |
+| Español | **[▶ Explorador de Redes Booleanas](https://rpdaniels.github.io/boonetex/Explorador%20de%20Redes%20Booleanas.html)** | [HTML](https://github.com/RPDaniels/boonetex/blob/main/Explorador%20de%20Redes%20Booleanas.html) |
+
+<sub>Tip: Ctrl/Cmd + click to open in a new tab · Consejo: Ctrl/Cmd + clic para abrirla en otra pestaña.</sub>
 
 ---
 
@@ -78,7 +80,7 @@ In the matrix, row *i* holds the inputs that node xᵢ receives, and column *j* 
 
 ### Running it
 
-The app is a single self-contained HTML file. All CSS and JavaScript are inline, and the only external resource is Google Fonts. To run it, download the file and open it in any modern browser. No build step, server or installation is needed.
+Open it online at the links above (served by GitHub Pages). The app is a single self-contained HTML file: all CSS and JavaScript are inline, and the only external resource is Google Fonts. To run it offline, download the file and open it in any modern browser. No build step, server or installation is needed.
 
 Saved configurations are kept in the browser's local storage. To move a configuration to another browser or device, use **Copy code** or a `.json` file.
 
@@ -153,6 +155,6 @@ En la matriz, la fila *i* contiene las entradas que recibe el nodo xᵢ, y la co
 
 ### Cómo usarla
 
-La aplicación es un único archivo HTML autocontenido. Todo el CSS y el JavaScript van dentro del archivo, y el único recurso externo son las fuentes de Google Fonts. Para usarla, descarga el archivo y ábrelo en cualquier navegador moderno. No hace falta compilar, ni un servidor, ni instalar nada.
+Ábrela en línea con los enlaces del principio (servidos por GitHub Pages). La aplicación es un único archivo HTML autocontenido: todo el CSS y el JavaScript van dentro del archivo, y el único recurso externo son las fuentes de Google Fonts. Para usarla sin conexión, descarga el archivo y ábrelo en cualquier navegador moderno. No hace falta compilar, ni un servidor, ni instalar nada.
 
 Las configuraciones guardadas se conservan en el almacenamiento local del navegador. Para llevar una configuración a otro navegador o dispositivo, usa **Copiar código** o un archivo `.json`.
